@@ -65,6 +65,9 @@ export default async function handler(
         prefix_padding_ms: vad_prefix_padding_ms || 300,
         silence_duration_ms: vad_silence_duration_ms || 500
       },
+      input_audio_transcription: {  // enables transcripts
+        "model": "lunav1"
+      },
       instructions: custom_prompt || 'You are Luna, a helpful AI assistant.',
       temperature: temperature || 0.8,
       top_p: top_p || 0.95,
