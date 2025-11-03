@@ -350,12 +350,24 @@ export default function Dashboard() {
     };
 
     console.log('📤 Sending session.update:', updateEvent);
+    
+    // Add to event log for visibility
+    addEventLog('session.update (sent)', {
+      type: 'session.update',
+      session: {
+        instructions: systemPrompt.substring(0, 100) + '...',
+        temperature,
+        top_p: topP,
+        top_k: topK,
+      }
+    });
+    
     dataChannelRef.current.send(JSON.stringify(updateEvent));
     
-    setHint('Session updated - changes applied');
+    setHint('🔄 Session update sent - watch Event Log!');
     setTimeout(() => {
       setHint('Speak naturally • AI is listening');
-    }, 2000);
+    }, 3000);
   };
 
   /**
@@ -814,9 +826,25 @@ export default function Dashboard() {
                           </div>
                         )}
                         
+                        {log.type === 'session.update (sent)' && (
+                          <div className="mt-2 pl-4 border-l-2 border-blue-500/50 bg-blue-500/5 rounded-r p-2">
+                            <div className="text-xs font-semibold text-blue-400 mb-1">📤 Sent to Server:</div>
+                            <div className="text-xs text-blue-300">
+                              Temperature: {log.data.session?.temperature}, 
+                              Top P: {log.data.session?.top_p}, 
+                              Top K: {log.data.session?.top_k}
+                            </div>
+                            {log.data.session?.instructions && (
+                              <div className="text-xs text-white/60 mt-1">
+                                Prompt: {log.data.session.instructions}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        
                         {log.type === 'session.updated' && (
                           <div className="mt-2 pl-4 border-l-2 border-blue-500/50 bg-blue-500/5 rounded-r p-2">
-                            <div className="text-xs text-blue-400">Session configuration updated successfully</div>
+                            <div className="text-xs text-blue-400">✅ Server confirmed: Session updated successfully!</div>
                           </div>
                         )}
                         
@@ -882,6 +910,9 @@ export default function Dashboard() {
               <div>
                 <label className="block text-sm font-semibold text-white mb-3">
                   System Prompt
+                  {isConnected && (
+                    <span className="ml-2 text-xs font-normal text-white/50">(Live updates via session.update)</span>
+                  )}
                 </label>
                 <textarea
                   value={systemPrompt}
@@ -894,6 +925,54 @@ export default function Dashboard() {
                     Prompt changed. Click "Update Session" to apply.
                   </div>
                 )}
+                
+                {/* Quick Preset Prompts */}
+                <div className="mt-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-medium text-white/50">Quick Presets:</label>
+                    {isConnected && (
+                      <span className="text-xs text-blue-400">👉 Try changing personality live!</span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => setSystemPrompt('You are a cheerful and enthusiastic AI assistant. Be upbeat, use exclamation marks, and spread positive energy!')}
+                      className="text-left bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-lg p-2 text-xs text-white/70 hover:text-white transition-all"
+                    >
+                      😊 Cheerful
+                    </button>
+                    <button
+                      onClick={() => setSystemPrompt('You are a professional and formal AI assistant. Be concise, precise, and maintain a business-like tone.')}
+                      className="text-left bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-lg p-2 text-xs text-white/70 hover:text-white transition-all"
+                    >
+                      👔 Professional
+                    </button>
+                    <button
+                      onClick={() => setSystemPrompt('You are a witty and sarcastic AI assistant. Use humor, clever wordplay, and don\'t take things too seriously.')}
+                      className="text-left bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-lg p-2 text-xs text-white/70 hover:text-white transition-all"
+                    >
+                      😏 Sarcastic
+                    </button>
+                    <button
+                      onClick={() => setSystemPrompt('You are a wise and calm AI mentor. Speak thoughtfully, share insights, and guide users with patience and wisdom.')}
+                      className="text-left bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-lg p-2 text-xs text-white/70 hover:text-white transition-all"
+                    >
+                      🧘 Zen Master
+                    </button>
+                    <button
+                      onClick={() => setSystemPrompt('You are an energetic pirate captain! Speak with pirate slang, say "arr" and "matey", and be adventurous!')}
+                      className="text-left bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-lg p-2 text-xs text-white/70 hover:text-white transition-all"
+                    >
+                      🏴‍☠️ Pirate
+                    </button>
+                    <button
+                      onClick={() => setSystemPrompt('You are a Shakespeare-style poet. Speak in eloquent, dramatic language with poetic flair and classical references.')}
+                      className="text-left bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-lg p-2 text-xs text-white/70 hover:text-white transition-all"
+                    >
+                      🎭 Shakespearean
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div className="border-t border-white/10"></div>
@@ -1060,12 +1139,17 @@ export default function Dashboard() {
                   <div className="space-y-3">
                     {/* Update Session Button */}
                     {(promptChanged || vadChanged) && (
-                      <button
-                        onClick={updateSession}
-                        className="w-full py-3 px-4 rounded-xl text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-lg transform hover:-translate-y-0.5 transition-all"
-                      >
-                        Update Session (Live)
-                      </button>
+                      <div className="space-y-2">
+                        <button
+                          onClick={updateSession}
+                          className="w-full py-3 px-4 rounded-xl text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-lg transform hover:-translate-y-0.5 transition-all"
+                        >
+                          🔄 Update Session (Live)
+                        </button>
+                        <div className="text-xs text-blue-400 bg-blue-500/10 border border-blue-500/20 rounded px-3 py-2">
+                          💡 This sends a <code className="font-mono bg-blue-500/20 px-1 rounded">session.update</code> event. Watch it in the Event Log below!
+                        </div>
+                      </div>
                     )}
 
                     {/* Mute Controls - Mobile */}
