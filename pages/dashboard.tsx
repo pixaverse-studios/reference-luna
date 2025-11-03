@@ -69,7 +69,6 @@ export default function Dashboard() {
   const dataChannelRef = useRef<RTCDataChannel | null>(null);
   const isInitializingRef = useRef(false);
   const typewriterTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const pendingAssistantTranscriptRef = useRef<string | null>(null);
   const isTypingRef = useRef(false);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -275,37 +274,30 @@ export default function Dashboard() {
           if (userTranscript && isTypingRef.current) {
             const checkAndType = () => {
               if (!isTypingRef.current) {
-                typewriterEffect(userTranscript, 'user', () => {
-                  setTimeout(() => {
-                    if (pendingAssistantTranscriptRef.current) {
-                      const assistantText = pendingAssistantTranscriptRef.current;
-                      pendingAssistantTranscriptRef.current = null;
-                      typewriterEffect(assistantText, 'assistant');
-                    }
-                  }, 1000);
-                });
+                typewriterEffect(userTranscript, 'user');
               } else {
                 setTimeout(checkAndType, 100);
               }
             };
             checkAndType();
           } else if (userTranscript) {
-            typewriterEffect(userTranscript, 'user', () => {
-              setTimeout(() => {
-                if (pendingAssistantTranscriptRef.current) {
-                  const assistantText = pendingAssistantTranscriptRef.current;
-                  pendingAssistantTranscriptRef.current = null;
-                  typewriterEffect(assistantText, 'assistant');
-                }
-              }, 1000);
-            });
+            typewriterEffect(userTranscript, 'user');
           }
           break;
 
         case 'response.audio_transcript.done':
           const assistantTranscript = event.transcript;
           if (assistantTranscript) {
-            pendingAssistantTranscriptRef.current = assistantTranscript;
+            // Wait for user transcript to finish, then display AI response
+            const displayAssistant = () => {
+              if (!isTypingRef.current) {
+                typewriterEffect(assistantTranscript, 'assistant');
+              } else {
+                setTimeout(displayAssistant, 100);
+              }
+            };
+            // Small delay to ensure user transcript is complete
+            setTimeout(displayAssistant, 500);
           }
           setIsUserSpeaking(false);
           setIsAISpeaking(true);
@@ -426,7 +418,6 @@ export default function Dashboard() {
     }
     
     analyserRef.current = null;
-    pendingAssistantTranscriptRef.current = null;
     isTypingRef.current = false;
     setIsUserMuted(false);
     setIsLunaMuted(false);
@@ -795,26 +786,61 @@ export default function Dashboard() {
                         
                         {/* Event Details */}
                         {log.type === 'conversation.item.input_audio_transcription.completed' && log.data.transcript && (
-                          <div className="text-xs text-white/60 mt-1 pl-4 border-l-2 border-green-500/30">
-                            User: {log.data.transcript}
+                          <div className="mt-2 pl-4 border-l-2 border-green-500/50 bg-green-500/5 rounded-r p-2">
+                            <div className="text-xs font-semibold text-green-400 mb-1">User Said:</div>
+                            <div className="text-sm text-white/80 leading-relaxed">{log.data.transcript}</div>
                           </div>
                         )}
                         
                         {log.type === 'response.audio_transcript.done' && log.data.transcript && (
-                          <div className="text-xs text-white/60 mt-1 pl-4 border-l-2 border-purple-500/30">
-                            AI: {log.data.transcript}
+                          <div className="mt-2 pl-4 border-l-2 border-purple-500/50 bg-purple-500/5 rounded-r p-2">
+                            <div className="text-xs font-semibold text-purple-400 mb-1">AI Response:</div>
+                            <div className="text-sm text-white/80 leading-relaxed">{log.data.transcript}</div>
+                          </div>
+                        )}
+                        
+                        {log.type === 'session.created' && (
+                          <div className="mt-2 pl-4 border-l-2 border-blue-500/50 bg-blue-500/5 rounded-r p-2">
+                            <div className="text-xs text-blue-400">
+                              Session ID: <span className="font-mono">{log.data.session?.id || 'N/A'}</span>
+                            </div>
                           </div>
                         )}
                         
                         {log.type === 'error' && log.data.error && (
-                          <div className="text-xs text-red-400 mt-1 pl-4 border-l-2 border-red-500/30">
-                            Error: {log.data.error.message || JSON.stringify(log.data.error)}
+                          <div className="mt-2 pl-4 border-l-2 border-red-500/50 bg-red-500/5 rounded-r p-2">
+                            <div className="text-xs font-semibold text-red-400 mb-1">Error:</div>
+                            <div className="text-xs text-red-300">{log.data.error.message || JSON.stringify(log.data.error)}</div>
                           </div>
                         )}
                         
                         {log.type === 'session.updated' && (
-                          <div className="text-xs text-blue-400 mt-1 pl-4 border-l-2 border-blue-500/30">
-                            Session configuration updated
+                          <div className="mt-2 pl-4 border-l-2 border-blue-500/50 bg-blue-500/5 rounded-r p-2">
+                            <div className="text-xs text-blue-400">Session configuration updated successfully</div>
+                          </div>
+                        )}
+                        
+                        {log.type === 'input_audio_buffer.speech_started' && (
+                          <div className="mt-2 pl-4 border-l-2 border-green-500/50 bg-green-500/5 rounded-r p-2">
+                            <div className="text-xs text-green-400">🎤 User started speaking</div>
+                          </div>
+                        )}
+                        
+                        {log.type === 'input_audio_buffer.speech_stopped' && (
+                          <div className="mt-2 pl-4 border-l-2 border-green-500/50 bg-green-500/5 rounded-r p-2">
+                            <div className="text-xs text-green-400">🔇 User stopped speaking</div>
+                          </div>
+                        )}
+                        
+                        {log.type === 'response.created' && (
+                          <div className="mt-2 pl-4 border-l-2 border-purple-500/50 bg-purple-500/5 rounded-r p-2">
+                            <div className="text-xs text-purple-400">💬 AI started generating response</div>
+                          </div>
+                        )}
+                        
+                        {log.type === 'response.done' && (
+                          <div className="mt-2 pl-4 border-l-2 border-purple-500/50 bg-purple-500/5 rounded-r p-2">
+                            <div className="text-xs text-purple-400">✅ AI finished responding</div>
                           </div>
                         )}
                       </div>
