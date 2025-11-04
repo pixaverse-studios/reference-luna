@@ -48,6 +48,7 @@ export default function Dashboard() {
   const [isLunaMuted, setIsLunaMuted] = useState(false);
   const [eventLogs, setEventLogs] = useState<EventLog[]>([]);
   const [showEvents, setShowEvents] = useState(true);
+  const [connectionMethod, setConnectionMethod] = useState<'ephemeral' | 'direct'>('ephemeral');
 
   // Session Configuration
   const [systemPrompt, setSystemPrompt] = useState('You are a helpful and friendly AI assistant.');
@@ -492,51 +493,112 @@ export default function Dashboard() {
       };
 
       // ICE candidate handling
-      pc.onicecandidate = (event) => {
+      pc.onicecandidate = async (event) => {
         if (!event.candidate) {
-          // ICE gathering complete, send offer to backend
+          // ICE gathering complete
           if (!pc.localDescription) return;
 
-          const config = {
-            sdp: pc.localDescription.sdp,
-            custom_prompt: systemPrompt.trim() || '',
-            temperature: temperature,
-            top_p: topP,
-            top_k: topK,
-            vad_threshold: vadThreshold,
-            vad_prefix_padding_ms: vadPrefixPadding,
-            vad_silence_duration_ms: vadSilenceDuration,
-          };
+          try {
+            if (connectionMethod === 'ephemeral') {
+              // SECURE METHOD: Ephemeral Token Flow (2-step)
+              
+              // Step 1: Generate ephemeral token with session config
+              console.log('🔐 Ephemeral Method - Step 1: Requesting ephemeral token...');
+              setHint('🔑 Generating secure session token...');
 
-          console.log('📤 Sending offer to backend API');
+              const tokenResponse = await fetch('/api/ephemeral-key', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  custom_prompt: systemPrompt.trim() || '',
+                  temperature: temperature,
+                  top_p: topP,
+                  top_k: topK,
+                  vad_threshold: vadThreshold,
+                  vad_prefix_padding_ms: vadPrefixPadding,
+                  vad_silence_duration_ms: vadSilenceDuration,
+                })
+              });
 
-          fetch('/api/offer', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(config)
-          })
-            .then(response => {
-              if (!response.ok) {
-                throw new Error(`Server returned ${response.status}`);
+              if (!tokenResponse.ok) {
+                const error = await tokenResponse.json();
+                throw new Error(error.error || 'Failed to generate ephemeral token');
               }
-              return response.text();
-            })
-            .then(answerSDP => {
-              return pc.setRemoteDescription({ 
+
+              const { value: ephemeralToken, expires_at } = await tokenResponse.json();
+              console.log('✅ Ephemeral token received (expires:', new Date(expires_at * 1000).toLocaleTimeString(), ')');
+
+              // Step 2: Use ephemeral token to establish WebRTC connection
+              console.log('🔐 Ephemeral Method - Step 2: Sending SDP offer with ephemeral token...');
+              setHint('🔒 Establishing secure connection...');
+
+              const offerResponse = await fetch('/api/offer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  sdp: pc.localDescription.sdp,
+                  ephemeral_token: ephemeralToken
+                })
+              });
+
+              if (!offerResponse.ok) {
+                throw new Error(`Server returned ${offerResponse.status}`);
+              }
+
+              const answerSDP = await offerResponse.text();
+              
+              await pc.setRemoteDescription({ 
                 type: 'answer', 
                 sdp: answerSDP 
               });
-            })
-            .then(() => {
-              console.log('✅ WebRTC connection established');
-            })
-            .catch((error) => {
-              console.error('❌ Connection error:', error);
-              setHint('Connection failed • Try again');
-            })
-            .finally(() => {
-              isInitializingRef.current = false;
-            });
+
+              console.log('✅ WebRTC connection established (SECURE ephemeral token flow)');
+              setHint('🔐 Connected securely • Ephemeral token method');
+
+            } else {
+              // SIMPLE METHOD: Direct API Key Flow (1-step)
+              
+              console.log('🔓 Direct Method - Sending SDP offer with API key...');
+              setHint('Connecting directly...');
+
+              const config = {
+                sdp: pc.localDescription.sdp,
+                custom_prompt: systemPrompt.trim() || '',
+                temperature: temperature,
+                top_p: topP,
+                top_k: topK,
+                vad_threshold: vadThreshold,
+                vad_prefix_padding_ms: vadPrefixPadding,
+                vad_silence_duration_ms: vadSilenceDuration,
+              };
+
+              const response = await fetch('/api/offer-direct', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(config)
+              });
+
+              if (!response.ok) {
+                throw new Error(`Server returned ${response.status}`);
+              }
+
+              const answerSDP = await response.text();
+              
+              await pc.setRemoteDescription({ 
+                type: 'answer', 
+                sdp: answerSDP 
+              });
+
+              console.log('✅ WebRTC connection established (direct API key flow)');
+              setHint('🔓 Connected • Direct method');
+            }
+
+          } catch (error) {
+            console.error('❌ Connection error:', error);
+            setHint('Connection failed • Try again');
+          } finally {
+            isInitializingRef.current = false;
+          }
         }
       };
 
@@ -650,6 +712,15 @@ export default function Dashboard() {
           <div className="px-4 md:px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-4">
               <h1 className="text-lg font-medium text-white/90">Voice AI Demo</h1>
+              {isConnected && (
+                <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+                  connectionMethod === 'ephemeral' 
+                    ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                    : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                }`}>
+                  {connectionMethod === 'ephemeral' ? '🔐 Ephemeral' : '🔓 Direct'}
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-3">
@@ -1128,13 +1199,78 @@ export default function Dashboard() {
               {/* Actions */}
               <div className="space-y-3">
                 {!isConnected ? (
-                  <button
-                    onClick={handleConnect}
-                    disabled={isInitializingRef.current}
-                    className="w-full py-3 px-4 rounded-xl text-sm font-semibold bg-white hover:bg-gray-100 text-black shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isInitializingRef.current ? 'Connecting...' : 'Connect'}
-                  </button>
+                  <>
+                    {/* Connection Method Selector */}
+                    <div>
+                      <label className="block text-xs font-medium text-white/70 mb-2">
+                        Connection Method:
+                      </label>
+                      <div className="grid grid-cols-2 gap-2 mb-3">
+                        <button
+                          onClick={() => setConnectionMethod('ephemeral')}
+                          className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                            connectionMethod === 'ephemeral'
+                              ? 'bg-green-600 text-white border border-green-500'
+                              : 'bg-white/5 text-white/70 border border-white/10 hover:bg-white/10'
+                          }`}
+                        >
+                          🔐 Ephemeral Token
+                          {connectionMethod === 'ephemeral' && (
+                            <div className="text-[10px] mt-0.5 opacity-80">Secure (Recommended)</div>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => setConnectionMethod('direct')}
+                          className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                            connectionMethod === 'direct'
+                              ? 'bg-orange-600 text-white border border-orange-500'
+                              : 'bg-white/5 text-white/70 border border-white/10 hover:bg-white/10'
+                          }`}
+                        >
+                          🔓 Direct API
+                          {connectionMethod === 'direct' && (
+                            <div className="text-[10px] mt-0.5 opacity-80">Simple</div>
+                          )}
+                        </button>
+                      </div>
+                      
+                      {/* Method Description */}
+                      {connectionMethod === 'ephemeral' ? (
+                        <div className="text-xs text-green-400 bg-green-500/10 border border-green-500/30 rounded px-3 py-2">
+                          <div className="font-semibold mb-1">✅ Secure Method (Production)</div>
+                          <div className="text-white/70">
+                            • 2-step flow: Generate token → Connect<br/>
+                            • Token expires in 5 minutes<br/>
+                            • One-time use only<br/>
+                            • Main API key never exposed
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-xs text-orange-400 bg-orange-500/10 border border-orange-500/30 rounded px-3 py-2">
+                          <div className="font-semibold mb-1">⚠️ Simple Method (Dev/Testing)</div>
+                          <div className="text-white/70">
+                            • 1-step flow: Direct connect<br/>
+                            • API key used server-side<br/>
+                            • Good for development<br/>
+                            • Use ephemeral for production
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <button
+                      onClick={handleConnect}
+                      disabled={isInitializingRef.current}
+                      className={`w-full py-3 px-4 rounded-xl text-sm font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                        connectionMethod === 'ephemeral'
+                          ? 'bg-green-600 hover:bg-green-700 text-white'
+                          : 'bg-orange-600 hover:bg-orange-700 text-white'
+                      }`}
+                    >
+                      {isInitializingRef.current ? 'Connecting...' : 
+                        connectionMethod === 'ephemeral' ? '🔐 Connect (Ephemeral)' : '🔓 Connect (Direct)'}
+                    </button>
+                  </>
                 ) : (
                   <div className="space-y-3">
                     {/* Update Session Button */}

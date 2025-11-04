@@ -18,12 +18,18 @@ This is a **showcase project** demonstrating best practices for using Luna's voi
 - ✅ **Event-Driven Communication** - Full OpenAI-compatible event handling
 - ✅ **Real-Time Transcription** - Live conversation display with typewriter effect
 - ✅ **Mute Controls** - Independent mic and speaker muting
+- ✅ **Live Event Log** - See all WebRTC events in real-time
 
 ### Advanced Features
 - ✅ **Live Session Updates** - Change prompts and settings mid-conversation
 - ✅ **Server-Side VAD Configuration** - Adjust voice activity detection parameters
 - ✅ **Generation Parameters** - Control temperature, top_p, and top_k
 - ✅ **Conversation Export** - Download transcripts as JSON
+
+### 🔐 Two Connection Methods (UNIQUE!)
+- ✅ **Ephemeral Token Method** - Secure, production-ready (recommended)
+- ✅ **Direct API Method** - Simple, good for development
+- ✅ **Side-by-side comparison** - Switch between methods to understand tradeoffs
 
 ## 🚀 Quick Start
 
@@ -42,7 +48,7 @@ bun install
 Create a `.env.local` file:
 
 ```bash
-BACKEND_URL=https://your-luna-backend.com
+BACKEND_URL=https://fal.run/Pixa-AI/luna-next
 AUTH_KEY=your_luna_api_key_here
 ```
 
@@ -62,13 +68,36 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## 📖 Key Concepts
 
+### Two Connection Methods
+
+This reference implementation showcases **BOTH** ways to connect:
+
+#### 🔐 Ephemeral Token (Secure)
+```
+Client → /api/ephemeral-key → Luna generates token
+Client → /api/offer (with token) → WebRTC established
+```
+- Token expires in 5 minutes
+- One-time use only
+- Main API key never exposed
+
+#### 🔓 Direct API (Simple)
+```
+Client → /api/offer-direct → WebRTC established
+```
+- Single step
+- API key used server-side
+- Good for development
+
+See [CONNECTION_METHODS.md](./CONNECTION_METHODS.md) for detailed comparison.
+
 ### Luna vs OpenAI
 
 Luna's API is **fully compatible** with OpenAI's Realtime WebRTC API. The only differences are:
 
 | Aspect | OpenAI | Luna |
 |--------|--------|------|
-| **Endpoint** | `wss://api.openai.com/v1/realtime` | Your Luna backend URL |
+| **Endpoint** | `wss://api.openai.com/v1/realtime` | `https://fal.run/Pixa-AI/luna-next` |
 | **Auth Header** | `Authorization: Bearer <token>` | `X-Luna-Key: Bearer <key>` |
 | **Events** | OpenAI event types | Same event types ✅ |
 | **WebRTC Flow** | Standard WebRTC | Same standard ✅ |
@@ -112,13 +141,16 @@ luna-example/
 │   ├── index.tsx              # Redirects to dashboard
 │   ├── dashboard.tsx          # Main WebRTC UI (heavily commented)
 │   └── api/
-│       ├── offer.ts           # WebRTC offer/answer proxy
+│       ├── ephemeral-key.ts   # 🔐 Generate ephemeral tokens (secure)
+│       ├── offer.ts           # 🔐 WebRTC with ephemeral token
+│       ├── offer-direct.ts    # 🔓 WebRTC with direct API key
 │       └── ice-servers.ts     # ICE servers endpoint
 ├── components/
 │   └── TranscriptPanel.tsx    # Conversation display
 ├── lib/
 │   ├── config.ts              # Configuration constants
 │   └── utils.ts               # Utility functions
+├── CONNECTION_METHODS.md      # Detailed comparison of both methods
 └── .env.local                 # Your API credentials (not in git)
 ```
 

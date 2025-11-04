@@ -36,57 +36,36 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Luna backend configuration
-  const backendUrl = process.env.BACKEND_URL?.replace(/\/$/, '');
-  const targetUrl = `${backendUrl}/v1/realtime/calls`;
+  const BACKEND_URL = process.env.BACKEND_URL;
+
+  if (!BACKEND_URL) {
+    return res.status(500).json({ error: 'Missing BACKEND_URL configuration' });
+  }
 
   try {
-    const { 
-      sdp, 
-      custom_prompt, 
-      temperature, 
-      top_p, 
-      top_k,
-      vad_threshold,
-      vad_prefix_padding_ms,
-      vad_silence_duration_ms
-    } = req.body;
+    const { sdp, ephemeral_token } = req.body;
 
-    // Build OpenAI-compatible session config
-    const sessionConfig = JSON.stringify({
-      type: 'realtime',
-      model: 'lunav1',
-      audio: {
-        output: { voice: 'base' }
-      },
-      turn_detection: {
-        type: 'server_vad',
-        threshold: vad_threshold || 0.5,
-        prefix_padding_ms: vad_prefix_padding_ms || 300,
-        silence_duration_ms: vad_silence_duration_ms || 500
-      },
-      input_audio_transcription: {  // enables transcripts
-        "model": "lunav1"
-      },
-      instructions: custom_prompt || 'You are Luna, a helpful AI assistant.',
-      temperature: temperature || 0.8,
-      top_p: top_p || 0.95,
-      top_k: top_k || 50
-    });
+    if (!sdp) {
+      return res.status(400).json({ error: 'Missing SDP in request' });
+    }
 
-    // Create multipart form data as expected by Luna API
-    const formData = new FormData();
-    formData.append('sdp', sdp);
-    formData.append('session', sessionConfig);
+    if (!ephemeral_token) {
+      return res.status(400).json({ error: 'Missing ephemeral_token. Call /api/ephemeral-key first.' });
+    }
 
-    // Send request to Luna backend
-    // Key difference from OpenAI: Uses X-Luna-Key header
+    // Luna's realtime calls endpoint
+    const backendUrl = BACKEND_URL.replace(/\/$/, '');
+    const targetUrl = `${backendUrl}/v1/realtime/calls`;
+
+    // Send SDP offer with ephemeral token
+    // Note: Luna accepts raw SDP body (not FormData when using ephemeral tokens)
     const response = await fetch(targetUrl, {
       method: 'POST',
       headers: {
-        'X-Luna-Key': `Bearer ${process.env.AUTH_KEY}`,
+        'Content-Type': 'application/sdp',
+        'X-Luna-Key': `Bearer ${ephemeral_token}`,  // Use ephemeral token from client
       },
-      body: formData,
+      body: sdp,  // Raw SDP string
     });
 
     if (!response.ok) {

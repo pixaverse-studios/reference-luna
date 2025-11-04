@@ -16,7 +16,7 @@ bun install
 Create `.env.local` in the project root:
 
 ```bash
-BACKEND_URL=https://your-luna-backend.com
+BACKEND_URL=https://fal.run/Pixa-AI/luna-next
 AUTH_KEY=your_api_key_here
 ```
 
