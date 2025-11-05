@@ -90,6 +90,8 @@ export default async function handler(
 
     const data = await response.json();
 
+    console.log(data.value)
+
     // Return ephemeral token to client
     // Token format: "eph_eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
     // Expires in 5 minutes, one-time use
