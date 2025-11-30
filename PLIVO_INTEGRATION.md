@@ -1,5 +1,7 @@
 # Luna Plivo Telephony Integration
 
+> **New to Plivo?** Check out our [Beginner's Step-by-Step Guide](./GETTING_STARTED_PLIVO.md) for a zero-to-hero tutorial.
+
 Connect phone calls to Luna's voice AI using Plivo Media Streams.
 
 ## 🎯 Overview

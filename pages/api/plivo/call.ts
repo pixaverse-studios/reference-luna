@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 const plivo = require('plivo');
+import https from 'https';
 
 /**
  * Plivo Outbound Call Endpoint
@@ -44,12 +45,19 @@ export default async function handler(
     let configToken: string | undefined;
     
     if (instructions) {
+      // Create an agent that ignores SSL errors for development tunnels
+      const agent = new https.Agent({
+        rejectUnauthorized: false
+      });
+
       const configResponse = await fetch(`${BACKEND_URL.replace(/\/$/, '')}/plivo/configure`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-Luna-Key': `Bearer ${AUTH_KEY}`,
         },
+        // @ts-ignore - fetch types might not include agent
+        agent: agent,
         body: JSON.stringify({
           instructions,
           temperature: temperature || 0.8,
