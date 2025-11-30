@@ -317,3 +317,156 @@ For production deployments:
 
 **Security First! 🔐 Choose wisely based on your needs.**
 
+---
+
+## 📞 Method 3: Plivo Telephony Integration
+
+### Overview
+Connect phone calls to Luna's voice AI using Plivo Media Streams. This enables voice AI for telephony applications.
+
+### Flow Diagram
+```
+Phone Call              Plivo                  Luna API
+  │                       │                        │
+  │ 1. Inbound call       │                        │
+  │──────────────────────>│                        │
+  │                       │                        │
+  │                       │ 2. Fetch Answer URL    │
+  │                       │   GET your-server/answer
+  │                       │──────────────────────>│
+  │                       │                        │
+  │                       │ 3. Plivo XML           │
+  │                       │   <Stream>wss://luna/plivo/stream?api_key=xxx</Stream>
+  │                       │<──────────────────────│
+  │                       │                        │
+  │                       │ 4. WebSocket connect   │
+  │                       │──────────────────────>│
+  │                       │                        │
+  │                       │ 5. Auth via api_key    │
+  │                       │<──────────────────────│
+  │                       │                        │
+  │ 6. Bidirectional      │                        │
+  │    audio streaming    │<─────────────────────>│
+  │<─────────────────────>│                        │
+```
+
+### Implementation
+
+**Step 1: Generate Config Token & Create Answer URL**
+
+Create an endpoint that generates a config token and returns Plivo XML:
+
+```typescript
+// pages/api/plivo-answer.ts
+import type { NextApiRequest, NextApiResponse } from 'next';
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // Generate config token with session settings (including system prompt)
+  const tokenResponse = await fetch(`${process.env.LUNA_BACKEND_URL}/plivo/configure`, {
+    method: 'POST',
+    headers: {
+      'X-Luna-Key': `Bearer ${process.env.LUNA_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      instructions: 'You are a helpful customer support agent...',
+      temperature: 0.7,
+      silence_timeout: 60
+    })
+  });
+  
+  const { config_token } = await tokenResponse.json();
+  
+  // Return Plivo XML with config token
+  const lunaUrl = `wss://${process.env.LUNA_BACKEND_URL}/plivo/stream?api_key=${process.env.LUNA_API_KEY}&config_token=${config_token}`;
+  
+  res.setHeader('Content-Type', 'application/xml');
+  res.send(`<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Stream bidirectional="true" streamTimeout="86400" contentType="audio/x-l16;rate=8000">
+        ${lunaUrl}
+    </Stream>
+</Response>`);
+}
+```
+
+**Step 2: Configure Plivo Application**
+
+In your Plivo dashboard:
+1. Create an Application
+2. Set Answer URL to `https://your-app.com/api/plivo-answer`
+3. Assign your phone number to the application
+
+**Step 3: Make Outbound Calls (Optional)**
+
+```typescript
+import Plivo from 'plivo';
+
+const client = new Plivo.Client(PLIVO_AUTH_ID, PLIVO_AUTH_TOKEN);
+
+await client.calls.create({
+  from: '+14155551234',
+  to: '+14155559876',
+  answerUrl: 'https://your-app.com/api/plivo-answer',
+  answerMethod: 'GET'
+});
+```
+
+### Configuration via Config Token (Recommended)
+
+1. **POST `/plivo/configure`** with your config (instructions, temperature, etc.)
+2. **Receive `config_token`** (valid 5 min, one-time use)
+3. **Include in WebSocket URL**: `?api_key=xxx&config_token=cfg_xxx`
+
+| Token Property | Value |
+|----------------|-------|
+| Validity | 5 minutes |
+| Usage | One-time only |
+| Config storage | Embedded in token |
+
+### Configuration via Query Parameters (Simple)
+
+For simple configs without custom prompts:
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `api_key` | **Required**. Luna API key | - |
+| `config_token` | Token from `/plivo/configure` | - |
+| `temperature` | LLM temperature (0.0-2.0) | `0.8` |
+| `vad_threshold` | VAD sensitivity (0.0-1.0) | `0.5` |
+| `silence_timeout` | End call after N seconds silence | `30` |
+
+### Security Considerations
+
+✅ **Secure Authentication**
+- API key passed via query parameter over WSS (TLS encrypted)
+- Key validated before WebSocket upgrade
+- Supports same API keys as WebRTC methods
+
+⚠️ **Additional Considerations**
+- API key visible in server logs (use dedicated telephony keys)
+- Consider IP whitelisting for Plivo's servers
+- Implement rate limiting on Answer URL
+
+### Best For
+- ✅ Phone-based AI agents
+- ✅ Customer support automation
+- ✅ IVR systems with AI
+- ✅ Outbound AI calling campaigns
+- ✅ Voice surveys and feedback collection
+
+See [PLIVO_INTEGRATION.md](./PLIVO_INTEGRATION.md) for comprehensive documentation.
+
+---
+
+## 📊 All Methods Comparison
+
+| Feature | Ephemeral Token 🔐 | Direct API 🔓 | Plivo Telephony 📞 |
+|---------|-------------------|--------------|-------------------|
+| **Use Case** | Browser WebRTC | Browser WebRTC | Phone Calls |
+| **Security Level** | Maximum | Good | Good |
+| **Token Expiry** | 5 minutes | No expiry | No expiry |
+| **Auth Method** | Header | Header | Query param |
+| **Bidirectional Audio** | ✅ WebRTC | ✅ WebRTC | ✅ WebSocket |
+| **Best For** | Production web | Development | Telephony |
+

@@ -26,9 +26,10 @@ This is a **showcase project** demonstrating best practices for using Luna's voi
 - ✅ **Generation Parameters** - Control temperature, top_p, and top_k
 - ✅ **Conversation Export** - Download transcripts as JSON
 
-### 🔐 Two Connection Methods (UNIQUE!)
+### 🔐 Multiple Connection Methods
 - ✅ **Ephemeral Token Method** - Secure, production-ready (recommended)
 - ✅ **Direct API Method** - Simple, good for development
+- ✅ **Plivo Telephony** - Connect phone calls to Luna's AI
 - ✅ **Side-by-side comparison** - Switch between methods to understand tradeoffs
 
 ## 🚀 Quick Start
@@ -140,17 +141,23 @@ luna-example/
 ├── pages/
 │   ├── index.tsx              # Redirects to dashboard
 │   ├── dashboard.tsx          # Main WebRTC UI (heavily commented)
+│   ├── plivo.tsx              # 📞 Plivo telephony test page
 │   └── api/
 │       ├── ephemeral-key.ts   # 🔐 Generate ephemeral tokens (secure)
 │       ├── offer.ts           # 🔐 WebRTC with ephemeral token
 │       ├── offer-direct.ts    # 🔓 WebRTC with direct API key
-│       └── ice-servers.ts     # ICE servers endpoint
+│       ├── ice-servers.ts     # ICE servers endpoint
+│       └── plivo/
+│           ├── configure.ts   # 📞 Generate Plivo config token
+│           ├── answer.ts      # 📞 Plivo XML answer endpoint
+│           └── call.ts        # 📞 Initiate outbound calls
 ├── components/
 │   └── TranscriptPanel.tsx    # Conversation display
 ├── lib/
 │   ├── config.ts              # Configuration constants
 │   └── utils.ts               # Utility functions
-├── CONNECTION_METHODS.md      # Detailed comparison of both methods
+├── CONNECTION_METHODS.md      # WebRTC connection methods comparison
+├── PLIVO_INTEGRATION.md       # 📞 Plivo telephony integration guide
 └── .env.local                 # Your API credentials (not in git)
 ```
 
@@ -179,6 +186,39 @@ Proxies WebRTC offers to Luna backend. Handles:
 
 ### `/api/ice-servers`
 Fetches ICE servers for WebRTC connection establishment.
+
+### `/api/plivo/configure`
+Generates a config token for Plivo sessions with embedded settings.
+
+### `/api/plivo/answer`
+Returns Plivo XML to connect calls to Luna's AI.
+
+### `/api/plivo/call`
+Initiates outbound calls via Plivo API.
+
+## 📞 Plivo Telephony Integration
+
+Connect phone calls to Luna's voice AI! Visit `/plivo` to test.
+
+### Quick Start
+
+1. **Add Plivo credentials** to `.env.local`:
+```bash
+PLIVO_AUTH_ID=your_auth_id
+PLIVO_AUTH_TOKEN=your_auth_token
+```
+
+2. **Expose your server** (for testing):
+```bash
+ngrok http 3000
+```
+
+3. **Configure Plivo Application**:
+   - Set Answer URL to: `https://your-ngrok-url/api/plivo/answer`
+
+4. **Test**: Call your Plivo number or use the Make Call feature
+
+See [PLIVO_INTEGRATION.md](./PLIVO_INTEGRATION.md) for detailed documentation.
 
 ## 📝 Code Walkthrough
 
@@ -229,7 +269,10 @@ Enable verbose logging by checking the browser console. Events are logged with e
 
 ## 📚 Additional Resources
 
-- [Luna API Documentation](#) - Detailed API reference
+- [API Reference](./API_REFERENCE.md) - Full API documentation
+- [Integration Guide](./INTEGRATION_GUIDE.md) - Step-by-step integration
+- [Connection Methods](./CONNECTION_METHODS.md) - WebRTC connection options
+- [Plivo Integration](./PLIVO_INTEGRATION.md) - Telephony integration guide
 - [OpenAI Realtime API Docs](https://platform.openai.com/docs/guides/realtime) - Compatible API specification
 - [WebRTC Basics](https://webrtc.org/getting-started/overview) - Learn WebRTC fundamentals
 

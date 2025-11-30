@@ -11,8 +11,14 @@
 
 // API endpoints (Next.js routes that proxy to Luna backend)
 export const API_ENDPOINTS = {
-  ICE_SERVERS: '/api/ice-servers',  // Fetches STUN/TURN servers
-  OFFER: '/api/offer',              // WebRTC offer/answer exchange
+  // WebRTC endpoints
+  ICE_SERVERS: '/api/ice-servers',       // Fetches STUN/TURN servers
+  OFFER: '/api/offer',                   // WebRTC offer/answer exchange
+  
+  // Plivo telephony endpoints
+  PLIVO_CONFIGURE: '/api/plivo/configure', // Generate config token
+  PLIVO_ANSWER: '/api/plivo/answer',       // Plivo XML answer URL
+  PLIVO_CALL: '/api/plivo/call',           // Initiate outbound call
 } as const;
 
 export default {

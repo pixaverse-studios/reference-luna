@@ -509,11 +509,138 @@ pc.ontrack = (event) => {
 };
 ```
 
+## 📞 Plivo Telephony API
+
+### POST `/plivo/configure`
+
+Generate a configuration token with embedded session settings. This is the recommended way to pass system prompts and complex configurations.
+
+**Headers:**
+```
+X-Luna-Key: Bearer YOUR_API_KEY
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "instructions": "You are a helpful customer support agent...",
+  "temperature": 0.7,
+  "top_p": 0.9,
+  "top_k": 50,
+  "max_tokens": 256,
+  "vad_threshold": 0.5,
+  "silence_ms": 500,
+  "voice_ms": 300,
+  "silence_timeout": 60
+}
+```
+
+**Response:**
+```json
+{
+  "config_token": "cfg_eyJhbGciOiJIUzI1...",
+  "expires_at": 1234567890
+}
+```
+
+**Token Properties:**
+- Expires in 5 minutes
+- One-time use (invalidated after first WebSocket connection)
+- Config embedded in token (secure, no URL exposure)
+
+**Example (JavaScript):**
+```javascript
+const response = await fetch('https://YOUR_LUNA_BACKEND/plivo/configure', {
+  method: 'POST',
+  headers: {
+    'X-Luna-Key': 'Bearer YOUR_API_KEY',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    instructions: 'You are a helpful assistant...',
+    temperature: 0.7,
+    silence_timeout: 60
+  })
+});
+
+const { config_token, expires_at } = await response.json();
+```
+
+---
+
+### WebSocket `/plivo/stream`
+
+Accepts Plivo Media Stream connections for telephony integration.
+
+**Protocol:** WebSocket (wss://)
+
+**Authentication:** Query parameter `api_key`
+
+**URL Format (with config token - recommended):**
+```
+wss://YOUR_LUNA_BACKEND/plivo/stream?api_key=YOUR_KEY&config_token=cfg_xxx
+```
+
+**URL Format (query params only):**
+```
+wss://YOUR_LUNA_BACKEND/plivo/stream?api_key=YOUR_KEY&temperature=0.7&silence_timeout=60
+```
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description | Default |
+|-----------|------|----------|-------------|---------|
+| `api_key` | string | ✅ | Your Luna API key | - |
+| `config_token` | string | ❌ | Token from `/plivo/configure` | - |
+| `temperature` | float | ❌ | LLM temperature (0.0-2.0) | `0.8` |
+| `top_p` | float | ❌ | Nucleus sampling (0.0-1.0) | `0.9` |
+| `top_k` | int | ❌ | Token selection limit | `50` |
+| `max_tokens` | int | ❌ | Max response tokens | `256` |
+| `vad_threshold` | float | ❌ | VAD sensitivity (0.0-1.0) | `0.5` |
+| `silence_ms` | int | ❌ | Silence to end turn (ms) | `500` |
+| `voice_ms` | int | ❌ | Speech to start turn (ms) | `300` |
+| `silence_timeout` | int | ❌ | End call after N seconds silence | `30` |
+
+**Audio Format:**
+- Input: 8kHz linear PCM 16-bit (from Plivo)
+- Output: 16kHz linear PCM 16-bit (to Plivo)
+
+**Example Plivo XML (with config token):**
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Stream bidirectional="true" 
+            streamTimeout="86400" 
+            contentType="audio/x-l16;rate=8000">
+        wss://luna.example.com/plivo/stream?api_key=sk-xxx&amp;config_token=cfg_xxx
+    </Stream>
+</Response>
+```
+
+**Example Plivo XML (query params only):**
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Stream bidirectional="true" 
+            streamTimeout="86400" 
+            contentType="audio/x-l16;rate=8000">
+        wss://luna.example.com/plivo/stream?api_key=sk-xxx&amp;temperature=0.7&amp;silence_timeout=60
+    </Stream>
+</Response>
+```
+
+See [PLIVO_INTEGRATION.md](./PLIVO_INTEGRATION.md) for more examples and best practices.
+
+---
+
 ## 📚 Related Documentation
 
 - [README.md](./README.md) - Project overview
 - [INTEGRATION_GUIDE.md](./INTEGRATION_GUIDE.md) - Step-by-step integration
 - [QUICK_START.md](./QUICK_START.md) - Get running in 2 minutes
+- [PLIVO_INTEGRATION.md](./PLIVO_INTEGRATION.md) - Plivo telephony guide
+- [CONNECTION_METHODS.md](./CONNECTION_METHODS.md) - All connection methods
 
 ---
 

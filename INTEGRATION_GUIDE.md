@@ -317,6 +317,60 @@ CMD ["npm", "start"]
 - **AWS**: Use Amplify or ECS
 - **Self-hosted**: Build and run with `npm run build && npm start`
 
+## 📞 Telephony Integration (Plivo)
+
+For phone-based AI applications, Luna also supports Plivo Media Streams.
+
+### Quick Start
+
+1. **Create Answer URL endpoint with config token:**
+
+```typescript
+// pages/api/plivo-answer.ts
+export default async function handler(req, res) {
+  // Generate config token with your session settings
+  const tokenResponse = await fetch(`${process.env.BACKEND_URL}/plivo/configure`, {
+    method: 'POST',
+    headers: {
+      'X-Luna-Key': `Bearer ${process.env.AUTH_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      instructions: 'You are a helpful support agent...',
+      temperature: 0.7,
+      silence_timeout: 60
+    })
+  });
+  
+  const { config_token } = await tokenResponse.json();
+  
+  res.setHeader('Content-Type', 'application/xml');
+  res.send(`<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Stream bidirectional="true" streamTimeout="86400" contentType="audio/x-l16;rate=8000">
+        wss://${process.env.BACKEND_URL}/plivo/stream?api_key=${process.env.AUTH_KEY}&amp;config_token=${config_token}
+    </Stream>
+</Response>`);
+}
+```
+
+2. **Configure Plivo Application** with your Answer URL
+3. **Make or receive calls** - callers connect to Luna's AI!
+
+### Configuration via Config Token (Recommended)
+
+```
+POST /plivo/configure  →  { config_token, expires_at }
+                            ↓
+wss://luna/plivo/stream?api_key=xxx&config_token=cfg_xxx
+```
+
+- Token valid for 5 minutes
+- One-time use
+- System prompt embedded securely (no URL encoding needed)
+
+See [PLIVO_INTEGRATION.md](./PLIVO_INTEGRATION.md) for comprehensive documentation.
+
 ## 💬 Support
 
 Need help? Contact us:

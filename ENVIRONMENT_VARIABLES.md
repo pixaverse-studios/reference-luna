@@ -6,6 +6,10 @@ Create a `.env.local` file in the root of your project:
 # Luna API Configuration
 BACKEND_URL=https://fal.run/Pixa-AI/luna-next
 AUTH_KEY=your_luna_api_key_here
+
+# Plivo Configuration (optional - for telephony integration)
+PLIVO_AUTH_ID=your_plivo_auth_id
+PLIVO_AUTH_TOKEN=your_plivo_auth_token
 ```
 
 ## Instructions
@@ -96,3 +100,45 @@ ${BACKEND_URL}/v1/realtime/calls
 ```
 
 Both use `X-Luna-Key` header for authentication.
+
+## Plivo Configuration (Optional)
+
+For telephony integration, add Plivo credentials:
+
+### `PLIVO_AUTH_ID`
+- Your Plivo Account Auth ID
+- Found in your Plivo Console dashboard
+- Required for making outbound calls via `/api/plivo/call`
+
+### `PLIVO_AUTH_TOKEN`
+- Your Plivo Account Auth Token
+- Found in your Plivo Console dashboard
+- Keep this secure - never expose to client
+
+### Plivo Setup Steps
+
+1. **Create Plivo Account**: Sign up at [plivo.com](https://www.plivo.com)
+2. **Get Credentials**: Copy Auth ID and Auth Token from dashboard
+3. **Buy a Number**: Purchase a phone number for outbound calls
+4. **Configure Application**:
+   - Create an Application in Plivo console
+   - Set Answer URL to: `https://your-domain/api/plivo/answer`
+   - Assign your phone number to the application
+
+### Plivo API Endpoints
+
+```
+/api/plivo/configure  - Generate config token (POST)
+/api/plivo/answer     - Plivo XML response (GET/POST)
+/api/plivo/call       - Initiate outbound call (POST)
+```
+
+### Testing with ngrok
+
+For local development, expose your server:
+
+```bash
+ngrok http 3000
+```
+
+Then use the ngrok URL as your Answer URL base.
